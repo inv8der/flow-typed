@@ -117,7 +117,10 @@ export {
 /**
  * Given a 'definitions/npm' dir, return a list of LibDefs that it contains.
  */
-async function getLibDefs(defsDir, validationErrs?) {
+export async function getLibDefs(
+  defsDir: string,
+  validationErrs?: VErrors,
+) {
   const libDefs: Array<LibDef> = [];
   const defsDirItems = await fs.readdir(defsDir);
   await P.all(defsDirItems.map(async (item) => {
@@ -150,15 +153,15 @@ async function getLibDefs(defsDir, validationErrs?) {
  */
 const FLOW_VER = 'v([0-9]+)\.([0-9]+|x)\.([0-9]+|x)';
 const FLOW_DIR_NAME_RE = new RegExp(
-  `^flow_(all|([><]?=)?${FLOW_VER}(_([><]?=)${FLOW_VER})?)$`
+  `^flow_(all|(([><]?=)?${FLOW_VER}(_([><]?=)${FLOW_VER})?))$`
 );
 function parsePkgFlowDirVersion(pkgFlowDirPath, validationErrs): Version {
   const pkgFlowDirName = path.basename(pkgFlowDirPath);
 
   const matches = pkgFlowDirName.match(FLOW_DIR_NAME_RE);
   if (matches == null) {
-    const repoPath = path.relative(pkgFlowDirPath, '..', '..');
-    const pkgFlowDirContext = path.relative(repoPath, pkgFlowDirName);
+    const repoPath = path.resolve(pkgFlowDirPath, '..', '..', '..');
+    const pkgFlowDirContext = path.relative(repoPath, pkgFlowDirPath);
     const error =
       `Malformed flow-version directory name! Expected the name to be ` +
       `formatted as 'flow_all' or ` +
@@ -168,33 +171,41 @@ function parsePkgFlowDirVersion(pkgFlowDirPath, validationErrs): Version {
     return emptyVersion();
   }
 
+  let upperBound;
   let [
-    _1, _2, range, major, minor, patch,
+    _1, isAll, _2, range, major, minor, patch,
     _3, upRange, upMajor, upMinor, upPatch
   ] = matches;
-  range = validateVersionRange(range, pkgFlowDirPath, validationErrs);
-  major =
-    validateVersionNumPart(major, "major", pkgFlowDirPath, validationErrs);
-  minor =
-    validateVersionPart(minor, "minor", pkgFlowDirPath, validationErrs);
-  patch =
-    validateVersionPart(patch, "patch", pkgFlowDirPath, validationErrs);
 
-  let upperBound;
-  if (upMajor) {
-    upRange = validateVersionRange(upRange, pkgFlowDirPath, validationErrs);
-    upMajor =
-      validateVersionNumPart(upMajor, "major", pkgFlowDirPath, validationErrs);
-    upMinor =
-      validateVersionPart(upMinor, "minor", pkgFlowDirPath, validationErrs);
-    upPatch =
-      validateVersionPart(upPatch, "patch", pkgFlowDirPath, validationErrs);
-    upperBound = {
-      range: upRange,
-      major: upMajor,
-      minor: upMinor,
-      patch: upPatch,
-    };
+  if (isAll === 'all') {
+    range = undefined;
+    major = 'x';
+    minor = 'x';
+    patch = 'x';
+  } else {
+    range = validateVersionRange(range, pkgFlowDirPath, validationErrs);
+    major =
+      validateVersionNumPart(major, "major", pkgFlowDirPath, validationErrs);
+    minor =
+      validateVersionPart(minor, "minor", pkgFlowDirPath, validationErrs);
+    patch =
+      validateVersionPart(patch, "patch", pkgFlowDirPath, validationErrs);
+
+    if (upMajor) {
+      upRange = validateVersionRange(upRange, pkgFlowDirPath, validationErrs);
+      upMajor =
+        validateVersionNumPart(upMajor, "major", pkgFlowDirPath, validationErrs);
+      upMinor =
+        validateVersionPart(upMinor, "minor", pkgFlowDirPath, validationErrs);
+      upPatch =
+        validateVersionPart(upPatch, "patch", pkgFlowDirPath, validationErrs);
+      upperBound = {
+        range: upRange,
+        major: upMajor,
+        minor: upMinor,
+        patch: upPatch,
+      };
+    }
   }
 
   return {range, major, minor, patch, upperBound};
@@ -427,10 +438,12 @@ async function verifyCLIVersion(defsDirPath) {
     );
   }
   const minCLIVersion = metadata.compatibleCLIRange;
-  if (!semver.satisfies(require('../../package.json').version, minCLIVersion)) {
+  const thisCLIVersion = require('../../package.json').version;
+  if (!semver.satisfies(thisCLIVersion, minCLIVersion)) {
     throw new Error(
-      `Please upgrade your CLI version! The latest flow-typed definitions ` +
-      `repo is only compatible with flow-typed@${minCLIVersion} and later.`
+      `Please upgrade your CLI version! This CLI is version ` +
+      `${thisCLIVersion}, but the latest flow-typed definitions are only ` +
+      `compatible with flow-typed@${minCLIVersion}`
     );
   }
 }
