@@ -166,7 +166,9 @@ declare class moment$Moment {
   set(unit: string, value: number): this;
   set(options: { unit: string, value: number }): this;
   static max(...dates: Array<moment$Moment>): moment$Moment;
+  static max(dates: Array<moment$Moment>): moment$Moment;
   static min(...dates: Array<moment$Moment>): moment$Moment;
+  static min(dates: Array<moment$Moment>): moment$Moment;
   add(value: number|moment$MomentDuration|moment$Moment|Object, unit?: string): this;
   subtract(value: number|moment$MomentDuration|moment$Moment|string, unit?: string): this;
   startOf(unit: string): this;
@@ -179,7 +181,7 @@ declare class moment$Moment {
   from(value: moment$Moment|string|number|Date|Array<number>, removePrefix?: bool): string;
   toNow(removePrefix?: bool): string;
   to(value: moment$Moment|string|number|Date|Array<number>, removePrefix?: bool): string;
-  calendar(refTime?: any, formats?: moment$CalendarFormats): void;
+  calendar(refTime?: any, formats?: moment$CalendarFormats): string;
   diff(date: moment$Moment|string|number|Date|Array<number>, format?: string, floating?: bool): number;
   valueOf(): number;
   unix(): number;
